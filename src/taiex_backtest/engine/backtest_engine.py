@@ -14,6 +14,8 @@ from .commission import CommissionCalculator
 from .event_bus import EventBus
 from .matching_engine import MatchingEngine
 from .position_tracker import PositionTracker
+from .risk_manager import RiskManager, RiskLimits
+from .slippage import SlippageModel
 
 
 class BacktestEngine:
@@ -25,6 +27,8 @@ class BacktestEngine:
         strategy: Strategy,
         product: ProductType = ProductType.TX,
         initial_capital: Decimal = Decimal("1000000"),
+        slippage_model: SlippageModel | None = None,
+        risk_limits: RiskLimits | None = None,
     ):
         self._feed = feed
         self._strategy = strategy
@@ -36,8 +40,9 @@ class BacktestEngine:
         self._clock = Clock()
         self._event_bus = EventBus()
         self._commission_calc = CommissionCalculator()
-        self._matching_engine = MatchingEngine(self._commission_calc)
+        self._matching_engine = MatchingEngine(self._commission_calc, slippage_model)
         self._position_tracker = PositionTracker()
+        self._risk_manager = RiskManager(risk_limits)
 
         # State
         self._running = False
@@ -63,6 +68,10 @@ class BacktestEngine:
     @property
     def fills(self) -> list[Fill]:
         return list(self._fills)
+
+    @property
+    def risk_manager(self) -> RiskManager:
+        return self._risk_manager
 
     @property
     def trades(self):
@@ -164,6 +173,8 @@ class BacktestEngine:
         trade = self._position_tracker.process_fill(fill)
         if trade is not None:
             self._capital += trade.net_pnl
+            self._risk_manager.update_pnl(trade.net_pnl)
+            self._risk_manager.update_peak_capital(self._capital)
 
         self._event_bus.publish(Event(
             event_type=EventType.ORDER_FILLED,

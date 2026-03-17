@@ -8,13 +8,19 @@ from ..domain.enums import OrderStatus, OrderType, Side, ProductType
 from ..domain.errors import InvalidOrderError
 from ..domain.models import Fill, Order
 from .commission import CommissionCalculator
+from .slippage import NoSlippage, SlippageModel
 
 
 class MatchingEngine:
     """Simulates order matching against tick data."""
 
-    def __init__(self, commission_calc: CommissionCalculator | None = None):
+    def __init__(
+        self,
+        commission_calc: CommissionCalculator | None = None,
+        slippage_model: SlippageModel | None = None,
+    ):
         self._commission_calc = commission_calc or CommissionCalculator()
+        self._slippage_model = slippage_model or NoSlippage()
         self._pending_orders: list[Order] = []
 
     @property
@@ -140,6 +146,11 @@ class MatchingEngine:
 
         if fill_price is None:
             return None
+
+        # Apply slippage
+        fill_price = self._slippage_model.calculate_slippage(
+            fill_price, order.side, order.quantity
+        )
 
         commission = self._commission_calc.calculate_commission(
             order.product, order.quantity
