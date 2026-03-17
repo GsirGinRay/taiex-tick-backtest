@@ -89,6 +89,18 @@ def main():
         if losers:
             print(f"    Avg loser: {sum(t.net_pnl for t in losers) / len(losers):+,.0f} TWD")
 
+    # Generate HTML report
+    if trades:
+        from taiex_backtest.analytics.report import generate_report
+        report_path = Path(__file__).parent.parent / "data" / "processed" / "report.html"
+        generate_report(
+            trades=trades,
+            initial_capital=Decimal("1000000"),
+            strategy_name=strategy.name,
+            output_path=report_path,
+        )
+        print(f"\n[7] HTML report saved to: {report_path}")
+
     print("\n" + "=" * 60)
     print("Backtest completed successfully!")
     print("=" * 60)
