@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TAIEX Tick Backtest</title>
+<script src="https://unpkg.com/htmx.org@2.0.0"></script>
+<script src="https://unpkg.com/alpinejs@3.14.0" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body x-data="app()">
+
+<nav class="navbar">
+  <div class="nav-brand">TAIEX Tick Backtest</div>
+  <div class="nav-links">
+    <button @click="tab='backtest'" :class="{'active': tab==='backtest'}">Backtest</button>
+    <button @click="tab='optimize'" :class="{'active': tab==='optimize'}">Optimize</button>
+    <button @click="tab='data'" :class="{'active': tab==='data'}">Data</button>
+  </div>
+</nav>
+
+<main class="container">
+  <!-- Backtest Tab -->
+  <div x-show="tab==='backtest'" x-cloak>
+    <div class="panel">
+      <h2>Run Backtest</h2>
+      <form @submit.prevent="runBacktest()">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Strategy</label>
+            <select x-model="config.strategy_name" required>
+              <option value="">Select strategy...</option>
+              <template x-for="s in strategies" :key="s">
+                <option :value="s" x-text="s"></option>
+              </template>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Product</label>
+            <select x-model="config.product">
+              <option value="TX">TX (Large)</option>
+              <option value="MTX">MTX (Mini)</option>
+              <option value="XMT">XMT (Micro)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Initial Capital</label>
+            <input type="number" x-model.number="config.initial_capital" min="1" step="100000">
+          </div>
+          <div class="form-group">
+            <label>Ticks</label>
+            <input type="number" x-model.number="config.num_ticks" min="100" max="1000000" step="1000">
+          </div>
+          <div class="form-group">
+            <label>Start Price</label>
+            <input type="number" x-model.number="config.start_price" min="1" step="100">
+          </div>
+          <div class="form-group">
+            <label>Seed</label>
+            <input type="number" x-model.number="config.seed">
+          </div>
+        </div>
+        <div class="form-group" x-show="strategyParams.length > 0">
+          <h3>Strategy Parameters</h3>
+          <div class="form-grid">
+            <template x-for="p in strategyParams" :key="p.name">
+              <div class="form-group">
+                <label x-text="p.name"></label>
+                <input type="number" x-model.number="config.strategy_params[p.name]">
+              </div>
+            </template>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" :disabled="loading">
+          <span x-show="!loading">Run Backtest</span>
+          <span x-show="loading">Running...</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Results -->
+    <div x-show="result" class="results">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Net PnL</div>
+          <div class="kpi-value" :class="parseFloat(result?.metrics?.total_net_pnl||0) >= 0 ? 'positive' : 'negative'"
+               x-text="formatMoney(result?.metrics?.total_net_pnl)"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Total Trades</div>
+          <div class="kpi-value" x-text="result?.metrics?.total_trades"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Win Rate</div>
+          <div class="kpi-value" x-text="formatPct(result?.metrics?.win_rate)"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Sharpe Ratio</div>
+          <div class="kpi-value" x-text="result?.metrics?.sharpe_ratio?.toFixed(2)"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Profit Factor</div>
+          <div class="kpi-value" x-text="result?.metrics?.profit_factor?.toFixed(2)"></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Max Drawdown</div>
+          <div class="kpi-value negative" x-text="formatPct(result?.metrics?.max_drawdown_pct)"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Equity Curve</h3>
+        <canvas id="equityChart" height="250"></canvas>
+      </div>
+
+      <div class="panel">
+        <h3>Trade List</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Side</th><th>Entry Time</th><th>Entry Price</th>
+                <th>Exit Time</th><th>Exit Price</th><th>Points</th><th>Net PnL</th><th>Tag</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="(t, i) in result?.trades || []" :key="i">
+                <tr>
+                  <td x-text="i+1"></td>
+                  <td x-text="t.side"></td>
+                  <td x-text="t.entry_time?.substring(0,19)"></td>
+                  <td x-text="t.entry_price"></td>
+                  <td x-text="t.exit_time?.substring(0,19)"></td>
+                  <td x-text="t.exit_price"></td>
+                  <td x-text="t.points"></td>
+                  <td :class="parseFloat(t.net_pnl) >= 0 ? 'positive' : 'negative'"
+                      x-text="formatMoney(t.net_pnl)"></td>
+                  <td x-text="t.tag"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Optimize Tab -->
+  <div x-show="tab==='optimize'" x-cloak>
+    <div class="panel">
+      <h2>Grid Search Optimization</h2>
+      <form @submit.prevent="runGridSearch()">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Strategy</label>
+            <select x-model="gsConfig.strategy_name" required>
+              <option value="">Select strategy...</option>
+              <template x-for="s in strategies" :key="s">
+                <option :value="s" x-text="s"></option>
+              </template>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Objective</label>
+            <select x-model="gsConfig.objective">
+              <option value="sharpe_ratio">Sharpe Ratio</option>
+              <option value="total_net_pnl">Net PnL</option>
+              <option value="profit_factor">Profit Factor</option>
+              <option value="win_rate">Win Rate</option>
+              <option value="calmar_ratio">Calmar Ratio</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ticks</label>
+            <input type="number" x-model.number="gsConfig.num_ticks" min="100" max="1000000">
+          </div>
+        </div>
+        <div class="form-group">
+          <h3>Parameter Grid (JSON)</h3>
+          <textarea x-model="gsParamGridJson" rows="4" class="code-input"
+                    placeholder='{"fast_period": [10, 20, 50], "slow_period": [100, 200]}'></textarea>
+        </div>
+        <button type="submit" class="btn-primary" :disabled="gsLoading">
+          <span x-show="!gsLoading">Run Grid Search</span>
+          <span x-show="gsLoading">Searching...</span>
+        </button>
+      </form>
+    </div>
+
+    <div x-show="gsResult" class="results">
+      <div class="panel">
+        <h3>Grid Search Results (<span x-text="gsResult?.total_combinations"></span> combinations)</h3>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th><th>Params</th><th>Objective</th><th>Trades</th>
+                <th>Win Rate</th><th>Net PnL</th><th>Sharpe</th><th>Max $%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="r in gsResult?.results || []" :key="r.rank">
+                <tr :class="r.rank === 1 ? 'highlight' : ''">
+                  <td x-text="r.rank"></td>
+                  <td x-text="JSON.stringify(r.params)"></td>
+                  <td x-text="r.objective_value?.toFixed(4)"></td>
+                  <td x-text="r.total_trades"></td>
+                  <td x-text="formatPct(r.win_rate)"></td>
+                  <td :class="parseFloat(r.net_pnl) >= 0 ? 'positive' : 'negative'"
+                      x-text="formatMoney(r.net_pnl)"></td>
+                  <td x-text="r.sharpe_ratio?.toFixed(2)"></td>
+                  <td x-text="formatPct(r.max_drawdown_pct)"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Tab -->
+  <div x-show="tab==='data'" x-cloak>
+    <div class="panel">
+      <h2>Data Sources</h2>
+      <div id="data-sources"
+           hx-get="/api/data/sources"
+           hx-trigger="load"
+           hx-swap="innerHTML">
+        Loading...
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+function app() {
+  return {
+    tab: 'backtest',
+    loading: false,
+    result: null,
+    strategies: [],
+    strategyParams: [],
+    config: {
+      strategy_name: '',
+      strategy_params: {},
+      product: 'TX',
+      initial_capital: 1000000,
+      num_ticks: 5000,
+      start_price: 20000,
+      seed: 42,
+      data_source: 'synthetic',
+    },
+    gsConfig: {
+      strategy_name: '',
+      objective: 'sharpe_ratio',
+      num_ticks: 5000,
+    },
+    gsParamGridJson: '',
+    gsLoading: false,
+    gsResult: null,
+    equityChart: null,
+
+    async init() {
+      try {
+        const res = await fetch('/api/strategies');
+        const data = await res.json();
+        this.strategies = data.strategies.map(s => s.name);
+      } catch (e) {
+        console.error('Failed to load strategies:', e);
+      }
+    },
+
+    formatMoney(val) {
+      if (!val) return '0';
+      const n = parseFloat(val);
+      return n.toLocaleString('en-US', {maximumFractionDigits: 0});
+    },
+
+    formatPct(val) {
+      if (val === undefined || val === null) return '0%';
+      return (val * 100).toFixed(1) + '%';
+    },
+
+    async runBacktest() {
+      this.loading = true;
+      this.result = null;
+      try {
+        const res = await fetch('/api/backtest', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(this.config),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || 'Backtest failed');
+          return;
+        }
+        this.result = await res.json();
+        this.$nextTick(() => this.renderEquityChart());
+      } catch (e) {
+        alert('Error: ' + e.message);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    renderEquityChart() {
+      const canvas = document.getElementById('equityChart');
+      if (!canvas || !this.result?.equity_curve) return;
+      if (this.equityChart) this.equityChart.destroy();
+      this.equityChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'Equity',
+            data: this.result.equity_curve.map(d => ({x: d.timestamp, y: d.equity})),
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.1)',
+            fill: true,
+            pointRadius: 0,
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {display: true, ticks: {color: '#64748b', maxTicksLimit: 8}, grid: {color: '#1e293b'}},
+            y: {ticks: {color: '#64748b'}, grid: {color: '#1e293b'}},
+          },
+          plugins: {legend: {display: false}},
+        },
+      });
+    },
+
+    async runGridSearch() {
+      this.gsLoading = true;
+      this.gsResult = null;
+      try {
+        const paramGrid = JSON.parse(this.gsParamGridJson);
+        const body = {
+          ...this.gsConfig,
+          param_grid: paramGrid,
+          data_source: 'synthetic',
+          seed: 42,
+          start_price: 20000,
+          initial_capital: 1000000,
+        };
+        const res = await fetch('/api/grid-search', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.detail || 'Grid search failed');
+          return;
+        }
+        this.gsResult = await res.json();
+      } catch (e) {
+        alert('Error: ' + e.message);
+      } finally {
+        this.gsLoading = false;
+      }
+    },
+  };
+}
+</script>
+</body>
+</html>

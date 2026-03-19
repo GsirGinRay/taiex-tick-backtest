@@ -1,0 +1,185 @@
+:root {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent: #3b82f6;
+  --green: #22c55e;
+  --red: #ef4444;
+  --border: #334155;
+  --hover: rgba(59, 130, 246, 0.08);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+[x-cloak] { display: none !important; }
+
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-brand {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.nav-links { display: flex; gap: 4px; }
+
+.nav-links button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.nav-links button:hover { background: var(--hover); color: var(--text); }
+.nav-links button.active { background: var(--accent); color: white; }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+.panel {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+
+h2 { font-size: 1.3rem; margin-bottom: 16px; }
+h3 { font-size: 1.1rem; margin-bottom: 12px; color: var(--text-muted); }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+
+label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+input, select, textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+.code-input { font-family: 'Fira Code', 'Consolas', monospace; font-size: 0.85rem; resize: vertical; }
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 8px;
+}
+
+.btn-primary:hover { opacity: 0.9; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.results { margin-top: 20px; }
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.kpi-card {
+  background: var(--card);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.kpi-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpi-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-top: 4px;
+}
+
+.positive { color: var(--green); }
+.negative { color: var(--red); }
+
+.table-wrapper { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+
+th, td {
+  padding: 8px 12px;
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  position: sticky;
+  top: 0;
+  background: var(--card);
+}
+
+td:first-child, th:first-child { text-align: left; }
+tr:hover { background: var(--hover); }
+tr.highlight { background: rgba(59, 130, 246, 0.12); }
+
+canvas { width: 100% !important; }
+
+@media (max-width: 768px) {
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .container { padding: 12px; }
+}
+
+@media (max-width: 480px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
